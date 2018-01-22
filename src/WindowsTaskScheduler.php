@@ -99,7 +99,64 @@ class WindowsTaskScheduler implements ScheduledTasksManagerInterface
      *
      * @throws \Exception
      */
-    public function createTask($name, $program, $arguments, $interval)
+    public function createDailyTask($name, $program, $arguments, $interval)
+    {
+        return $this->createTaskWithCallback($name, $program, $arguments, function($triggers) use($interval)
+        {
+            //
+            // Create a daily trigger. Note that the start boundary
+            // specifies the time of day when the task starts and the
+            // interval specifies on which days the task is run.
+            $trigger  = $triggers->Create(TASK_TRIGGER_DAILY);   // defined in the type library
+            $trigger->StartBoundary = date('Y-m-d\T\0\0\:\0\0\:\0\0');
+            $trigger->DaysInterval = 1;
+            $trigger->RandomDelay = 'PT30S'; // 30 seconds
+            $trigger->Id = 'DailyTriggerId';
+            $trigger->Enabled = true;
+
+            if($interval !== null)
+            {
+                //
+                // Set the task repetition pattern for the task.
+                $repetitionPattern = $trigger->Repetition;
+                $repetitionPattern->Duration = 'P1D';   // 1 day
+                $repetitionPattern->Interval = $this->dateIntervalToString($interval);
+            }
+        });
+    }
+
+    /**
+     * @param string $name      Name of the task
+     * @param string $program   Full path to a program to execute.
+     * @param string $arguments Command line arguments for the program.
+     *
+     * @return bool True on success.
+     *
+     * @throws \Exception
+     */
+    public function createWeeklyTask($name, $program, $arguments)
+    {
+        return $this->createTaskWithCallback($name, $program, $arguments, function($triggers)
+        {
+            $trigger = $triggers->Create(TASK_TRIGGER_WEEKLY);   // defined in the type library
+            $trigger->StartBoundary = date('Y-m-d\T\0\0\:\0\0\:\0\0');
+            $trigger->DaysOfWeek = 0x40; // Saturday
+            $trigger->WeeksInterval = 1; // every week
+            $trigger->RandomDelay = 'PT30S'; // 30 seconds
+            $trigger->Id = 'WeeklyTriggerId';
+            $trigger->Enabled = true;
+        });
+    }
+
+    /**
+     * @param string $name
+     * @param string $program
+     * @param string $arguments
+     * @param callable $setupTrigger
+     *
+     * @return bool|void
+     */
+    protected function createTaskWithCallback($name, $program, $arguments, callable $setupTrigger)
     {
         $service = $this->getService();
 
@@ -139,26 +196,10 @@ class WindowsTaskScheduler implements ScheduledTasksManagerInterface
         $settings->Priority = 7;
 
         //
-        // Create a daily trigger. Note that the start boundary
-        // specifies the time of day when the task starts and the
-        // interval specifies on which days the task is run.
+        // Set up trigger to run
+        //
         $triggers = $taskDefinition->Triggers;
-
-        $trigger  = $triggers->Create(TASK_TRIGGER_DAILY);   // defined in the type library
-        $trigger->StartBoundary = date('Y-m-d\T\0\0\:\0\0\:\0\0');
-        $trigger->DaysInterval = 1;
-        $trigger->RandomDelay = 'PT30S'; // 30 seconds
-        $trigger->Id = 'DailyTriggerId';
-        $trigger->Enabled = true;
-
-        if($interval !== null)
-        {
-            //
-            // Set the task repetition pattern for the task.
-            $repetitionPattern = $trigger->Repetition;
-            $repetitionPattern->Duration = 'P1D';   // 1 day
-            $repetitionPattern->Interval = $this->dateIntervalToString($interval);
-        }
+        $setupTrigger($triggers);
 
         $action = $taskDefinition->Actions->Create(TASK_ACTION_EXEC);   // defined in the type library
         $action->Path = $program;
@@ -212,6 +253,29 @@ class WindowsTaskScheduler implements ScheduledTasksManagerInterface
         {
             $folder->DeleteTask($name, 0);
             $result = true;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param string $name
+     * @param bool $enable
+     *
+     * @return bool True if the task exists and was disabled.
+     */
+    public function enableTask($name, $enable)
+    {
+        $result = false;
+
+        $folder = $this->getFolder('\\' . $this->parentFolderName);
+        if($folder !== null)
+        {
+            $task = $folder->GetTask($name);
+            if($task !== null)
+            {
+                $task->Enabled = $enable;
+            }
         }
 
         return $result;
