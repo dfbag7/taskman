@@ -6,11 +6,19 @@ interface ScheduledTasksManagerInterface
      * @param string $name      Name of the task
      * @param string $program   Full path to a program to execute.
      * @param string $arguments Command line arguments for the program.
-     * @param \DateInterval $interval the interval should be less than one day
      *
      * @return bool True on success.
      */
-    public function createDailyTask($name, $program, $arguments, $interval);
+    public function createDailyTask($name, $program, $arguments);
+
+    /**
+     * @param string $name      Name of the task
+     * @param string $program   Full path to a program to execute.
+     * @param string $arguments Command line arguments for the program.
+     *
+     * @return bool True on success.
+     */
+    public function createMinuteTask($name, $program, $arguments);
 
     /**
      * @param string $name      Name of the task

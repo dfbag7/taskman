@@ -53,55 +53,41 @@ class WindowsTaskScheduler implements ScheduledTasksManagerInterface
     }
 
     /**
-     * @param \DateInterval $interval
+     * @param string $name      Name of the task
+     * @param string $program   Full path to a program to execute.
+     * @param string $arguments Command line arguments for the program.
      *
-     * @return string
+     * @return bool True on success.
+     *
+     * @throws \Exception
      */
-    private function dateIntervalToString(\DateInterval $interval)
+    public function createDailyTask($name, $program, $arguments)
     {
-        // Reading all non-zero date parts.
-        $date = array_filter(array(
-            'Y' => $interval->y,
-            'M' => $interval->m,
-            'D' => $interval->d
-        ));
-
-        // Reading all non-zero time parts.
-        $time = array_filter(array(
-            'H' => $interval->h,
-            'M' => $interval->i,
-            'S' => $interval->s
-        ));
-
-        $specString = 'P';
-
-        // Adding each part to the spec-string.
-        foreach ($date as $key => $value) {
-            $specString .= $value . $key;
-        }
-        if (count($time) > 0) {
-            $specString .= 'T';
-            foreach ($time as $key => $value) {
-                $specString .= $value . $key;
-            }
-        }
-
-        return $specString;
+        return $this->createTaskWithCallback($name, $program, $arguments, function($triggers)
+        {
+            //
+            // Create a daily trigger. Note that the start boundary
+            // specifies the time of day when the task starts and the
+            // interval specifies on which days the task is run.
+            $trigger  = $triggers->Create(TASK_TRIGGER_DAILY);   // defined in the type library
+            $trigger->StartBoundary = date('Y-m-d\T\0\0\:\0\0\:\0\0');
+            $trigger->DaysInterval = 1;
+            $trigger->RandomDelay = 'PT30S'; // 30 seconds
+            $trigger->Id = 'DailyTriggerId';
+            $trigger->Enabled = true;
+        });
     }
 
     /**
      * @param string $name      Name of the task
      * @param string $program   Full path to a program to execute.
      * @param string $arguments Command line arguments for the program.
-     * @param \DateInterval $interval the interval should be less than one day
      *
      * @return bool True on success.
-     *
-     * @throws \Exception
      */
-    public function createDailyTask($name, $program, $arguments, $interval)
+    public function createMinuteTask($name, $program, $arguments)
     {
-        return $this->createTaskWithCallback($name, $program, $arguments, function($triggers) use($interval)
+        return $this->createTaskWithCallback($name, $program, $arguments, function($triggers)
         {
             //
             // Create a daily trigger. Note that the start boundary
@@ -114,14 +100,10 @@ class WindowsTaskScheduler implements ScheduledTasksManagerInterface
             $trigger->Id = 'DailyTriggerId';
             $trigger->Enabled = true;
 
-            if($interval !== null)
-            {
-                //
-                // Set the task repetition pattern for the task.
-                $repetitionPattern = $trigger->Repetition;
-                $repetitionPattern->Duration = 'P1D';   // 1 day
-                $repetitionPattern->Interval = $this->dateIntervalToString($interval);
-            }
+            // Set the task repetition pattern.
+            $repetitionPattern = $trigger->Repetition;
+            $repetitionPattern->Duration = 'P1D'; // 1 day
+            $repetitionPattern->Interval = 'PT1M'; // 1 minute
         });
     }
 
@@ -275,6 +257,7 @@ class WindowsTaskScheduler implements ScheduledTasksManagerInterface
             if($task !== null)
             {
                 $task->Enabled = $enable;
+                $result = true;
             }
         }
 
