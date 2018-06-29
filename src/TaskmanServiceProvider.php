@@ -20,7 +20,7 @@ class TaskmanServiceProvider extends ServiceProvider
     {
         $this->app->bindShared('\Dimbo\Taskman\ScheduledTasksManagerInterface', function()
         {
-            if(true) //PHP_OS === 'Linux')
+            if(PHP_OS === 'Linux')
             {
                 return new LinuxTaskScheduler();
             }
