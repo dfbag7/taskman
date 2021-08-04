@@ -5,20 +5,13 @@ use Illuminate\Support\ServiceProvider;
 class TaskmanServiceProvider extends ServiceProvider
 {
     /**
-     * Indicates if loading of the provider is deferred.
-     *
-     * @var bool
-     */
-    protected $defer = true;
-
-    /**
      * Register the service provider.
      *
      * @return void
      */
     public function register()
     {
-        $this->app->bindShared('\Dimbo\Taskman\ScheduledTasksManagerInterface', function()
+        $this->app->singleton(ScheduledTasksManagerInterface::class, function()
         {
             if(PHP_OS === 'Linux')
             {
@@ -38,6 +31,6 @@ class TaskmanServiceProvider extends ServiceProvider
      */
     public function provides()
     {
-        return ['\Dimbo\Taskman\ScheduledTasksManagerInterface'];
+        return [ScheduledTasksManagerInterface::class];
     }
 }
